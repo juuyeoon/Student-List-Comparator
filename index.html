@@ -40,14 +40,14 @@
                 <div class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-xl font-semibold text-gray-700 mb-2">1. 제출명단 붙여넣기</h2>
                     <p class="text-sm text-gray-500 mb-3">스프레드시트에서 학생 명단을 복사하여 붙여넣으세요. (한 줄에 한 명씩)</p>
-                    <textarea id="submittedList" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" placeholder="예시)&#10;김민준&#10;2024002 이서아&#10;박도윤"></textarea>
+                    <textarea id="submittedList" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" placeholder="예시)&#10;김민준&#10;박수빈 (Pixo Subin)&#10;박도윤"></textarea>
                 </div>
                 
                 <!-- Right: LMS List Input -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-xl font-semibold text-gray-700 mb-2">2. LMS 명단 붙여넣기</h2>
                     <p class="text-sm text-gray-500 mb-3">LMS 페이지의 텍스트를 그대로 복사하여 붙여넣으세요.</p>
-                    <textarea id="lmsList" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" placeholder="예시)&#10;1&#10;백기범&#10;광주광역시	고등학교 3학년...&#10;&#10;2&#10;신유설&#10;광주광역시..."></textarea>
+                    <textarea id="lmsList" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" placeholder="예시)&#10;1&#10;백기범&#10;광주광역시	고등학교 3학년...&#10;&#10;2&#10;박수빈 (Pixo Subin)&#10;광주광역시..."></textarea>
                 </div>
             </div>
 
@@ -169,16 +169,25 @@
         }
 
         function parseLmsList(text) {
+            // 1. 먼저 복잡한 형식(블록 형식)으로 파싱 시도
             const blocks = text.split(/\n\s*\n/);
-            const results = [];
+            let results = [];
             blocks.forEach(block => {
                 if (!block.trim()) return;
                 const lines = block.trim().split('\n').map(line => line.trim()).filter(line => line);
-                // 이름 글자 수 제한을 2~20자로 수정
-                if (lines.length >= 2 && !isNaN(lines[0]) && /^[가-힣]{2,20}$/.test(lines[1])) {
+                // 이름 규칙을 한글, 영어, 공백, 괄호 포함으로 수정하고 길이를 30자로 늘림
+                if (lines.length >= 2 && !isNaN(lines[0]) && /^[가-힣a-zA-Z\s()]{2,30}$/.test(lines[1])) {
                     results.push(lines[1]);
                 }
             });
+
+            // 2. 복잡한 형식으로 파싱된 결과가 없으면, 단순 형식으로 다시 파싱
+            if (results.length === 0) {
+                results = text.split('\n')
+                    .map(line => line.trim().replace(/^[\d\s\t,]+/, '').trim())
+                    .filter(name => name);
+            }
+
             return results;
         }
 
