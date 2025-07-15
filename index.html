@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학생 명단 대조 시스템 (요약 및 복사 기능)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* 기본 폰트를 Noto Sans KR로 설정 */
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+        }
+        /* 토글 가능한 요약 박스 커서 스타일 */
+        .toggle-summary {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">학생 명단 대조 시스템</h1>
+            <p class="text-gray-600 mt-2">제출명단과 LMS 명단을 비교하고, 후속 조치를 손쉽게 처리합니다.</p>
+        </header>
+
+        <!-- Input Section -->
+        <main>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                
+                <!-- Left: Submitted List Input -->
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">1. 제출명단 붙여넣기</h2>
+                    <p class="text-sm text-gray-500 mb-3">스프레드시트에서 학생 명단을 복사하여 붙여넣으세요. (한 줄에 한 명씩)</p>
+                    <textarea id="submittedList" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" placeholder="예시)&#10;김민준&#10;2024002 이서아&#10;박도윤"></textarea>
+                </div>
+                
+                <!-- Right: LMS List Input -->
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">2. LMS 명단 붙여넣기</h2>
+                    <p class="text-sm text-gray-500 mb-3">LMS 페이지의 텍스트를 그대로 복사하여 붙여넣으세요.</p>
+                    <textarea id="lmsList" class="w-full h-64 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow" placeholder="예시)&#10;1&#10;백기범&#10;광주광역시	고등학교 3학년...&#10;&#10;2&#10;신유설&#10;광주광역시..."></textarea>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="text-center my-8">
+                <button id="compareBtn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 text-lg">
+                    대조하기
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsContainer" class="bg-white p-6 rounded-xl shadow-lg hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-3">비교 결과</h2>
+                
+                <!-- New Summary Box -->
+                <div id="summaryBox" class="p-4 border rounded-lg bg-gray-50 mb-6">
+                    <p id="totalSummary" class="text-lg font-semibold text-gray-800 mb-3"></p>
+                    <div class="space-y-2 text-gray-700">
+                        <p>• 제출 명단에는 있으나 LMS에 없는 학생: <strong id="submittedOnlyCount" class="text-amber-600">0</strong>명</p>
+                        <div id="lmsOnlyToggle" class="toggle-summary">
+                           <p>• LMS 명단에는 있으나 제출 명단에 없는 학생: <strong id="lmsOnlyCount" class="text-red-600">0</strong>명 <span id="toggleIndicator" class="text-blue-500 text-sm font-semibold ml-2 hidden">(클릭하여 안내문 보기)</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Copyable Message Template -->
+                <div id="copyTemplateContainer" class="hidden p-4 border-l-4 border-blue-500 bg-blue-50 mb-6 rounded">
+                    <h3 class="font-semibold text-gray-800 mb-2">미제출 학생 안내문 (아래 텍스트를 복사하여 사용하세요)</h3>
+                    <div id="copyText" class="p-4 bg-white border rounded-md text-sm text-gray-800 whitespace-pre-wrap"></div>
+                    <button id="copyBtn" class="mt-3 bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                        클립보드로 복사
+                    </button>
+                </div>
+
+                <div id="comparisonResults" class="mb-6"></div>
+                <div id="lmsOnlyResults"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // DOM Elements
+        const submittedListEl = document.getElementById('submittedList');
+        const lmsListEl = document.getElementById('lmsList');
+        const compareBtn = document.getElementById('compareBtn');
+        const resultsContainer = document.getElementById('resultsContainer');
+        
+        // New Summary Elements
+        const summaryBox = document.getElementById('summaryBox');
+        const totalSummary = document.getElementById('totalSummary');
+        const submittedOnlyCount = document.getElementById('submittedOnlyCount');
+        const lmsOnlyCount = document.getElementById('lmsOnlyCount');
+        const lmsOnlyToggle = document.getElementById('lmsOnlyToggle');
+        const toggleIndicator = document.getElementById('toggleIndicator');
+
+        // Copy Template Elements
+        const copyTemplateContainer = document.getElementById('copyTemplateContainer');
+        const copyText = document.getElementById('copyText');
+        const copyBtn = document.getElementById('copyBtn');
+        
+        const comparisonResultsEl = document.getElementById('comparisonResults');
+        const lmsOnlyResultsEl = document.getElementById('lmsOnlyResults');
+
+        // Event Listeners
+        compareBtn.addEventListener('click', handleCompare);
+        lmsOnlyToggle.addEventListener('click', () => {
+             if (parseInt(lmsOnlyCount.textContent) > 0) {
+                copyTemplateContainer.classList.toggle('hidden');
+             }
+        });
+        copyBtn.addEventListener('click', copyMessageToClipboard);
+
+        // --- Core Functions ---
+
+        function handleCompare() {
+            const submittedText = submittedListEl.value.trim();
+            const lmsText = lmsListEl.value.trim();
+
+            if (!submittedText || !lmsText) {
+                showError("양쪽 명단을 모두 입력해주세요.");
+                return;
+            }
+
+            const submittedNames = parseSubmittedList(submittedText);
+            const lmsNames = parseLmsList(lmsText);
+            
+            const lmsFrequencyMap = new Map();
+            lmsNames.forEach(name => lmsFrequencyMap.set(name, (lmsFrequencyMap.get(name) || 0) + 1));
+            
+            let results = [];
+            let submittedOnlyStudents = [];
+
+            submittedNames.forEach(submittedName => {
+                const lmsCount = lmsFrequencyMap.get(submittedName);
+                if (lmsCount && lmsCount > 0) {
+                    results.push({ name: submittedName, status: '일치', statusColor: 'text-green-600', rowClass: '' });
+                    lmsFrequencyMap.set(submittedName, lmsCount - 1);
+                } else {
+                    results.push({ name: submittedName, status: 'LMS 명단에 없음', statusColor: 'text-amber-600 font-bold', rowClass: 'bg-amber-50' });
+                    submittedOnlyStudents.push(submittedName);
+                }
+            });
+
+            let lmsOnlyStudents = [];
+            lmsFrequencyMap.forEach((count, name) => {
+                for (let i = 0; i < count; i++) lmsOnlyStudents.push(name);
+            });
+
+            const discrepancyCount = submittedOnlyStudents.length + lmsOnlyStudents.length;
+            displayResults(results, submittedOnlyStudents, lmsOnlyStudents, submittedNames.length, discrepancyCount);
+        }
+
+        // --- Parsing Functions ---
+
+        function parseSubmittedList(text) {
+            return text.split('\n')
+                .map(line => line.trim().replace(/^[\d\s\t,]+/, '').trim())
+                .filter(name => name);
+        }
+
+        function parseLmsList(text) {
+            const blocks = text.split(/\n\s*\n/);
+            const results = [];
+            blocks.forEach(block => {
+                if (!block.trim()) return;
+                const lines = block.trim().split('\n').map(line => line.trim()).filter(line => line);
+                if (lines.length >= 2 && !isNaN(lines[0]) && /^[가-힣]{2,5}$/.test(lines[1])) {
+                    results.push(lines[1]);
+                }
+            });
+            return results;
+        }
+
+        // --- Display and Utility Functions ---
+
+        function displayResults(results, submittedOnly, lmsOnly, totalCount, discrepancyCount) {
+            resultsContainer.classList.remove('hidden');
+            copyTemplateContainer.classList.add('hidden'); // Reset template visibility
+
+            // Populate new summary box
+            totalSummary.textContent = `총 ${totalCount}건의 제출명단 기준, ${discrepancyCount}건의 차이점을 발견했습니다.`;
+            submittedOnlyCount.textContent = submittedOnly.length;
+            lmsOnlyCount.textContent = lmsOnly.length;
+
+            // Display detailed tables
+            comparisonResultsEl.innerHTML = createTableHtml('상세 비교 결과 (제출명단 기준)', ['제출 이름', '비교 결과'], results.map(r => `<tr class="${r.rowClass}"><td class="py-3 px-4 border-b border-gray-200 text-sm text-gray-800">${r.name}</td><td class="py-3 px-4 border-b border-gray-200 text-sm ${r.statusColor}">${r.status}</td></tr>`));
+            
+            if (lmsOnly.length > 0) {
+                lmsOnlyResultsEl.innerHTML = createTableHtml('LMS 명단에만 있는 학생', ['LMS 이름'], lmsOnly.map(name => `<tr><td class="py-3 px-4 border-b border-amber-200 text-sm text-amber-900">${name}</td></tr>`), 'amber');
+                // Activate toggle feature
+                toggleIndicator.classList.remove('hidden');
+                lmsOnlyToggle.classList.add('hover:bg-gray-200', 'rounded-md', 'p-1', '-m-1');
+                // Populate copy template
+                const studentListText = lmsOnly.join('\n');
+                copyText.innerText = `[어썸스쿨_디지털새싹 앱솔루션] 개인정보 제공 동의서 제출 안내
+
+안녕하세요 선생님~
+디지털새싹운영기관 어썸스쿨입니다.
+
+다음 학생들의 개인정보 제공 동의서가 아직 제출되지 않아 안내 드립니다.
+수업 운영을 위해 확인 후 제출 완료 부탁 드리겠습니다.
+
+* 미제출 학생 명단
+${studentListText}`;
+            } else {
+                lmsOnlyResultsEl.innerHTML = '';
+                toggleIndicator.classList.add('hidden');
+                lmsOnlyToggle.classList.remove('hover:bg-gray-200', 'rounded-md', 'p-1', '-m-1');
+            }
+            
+            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function createTableHtml(title, headers, rows, theme = 'gray') {
+            const themeClasses = {
+                gray: { container: 'border-gray-200', header: 'bg-gray-100', text: 'text-gray-600', row: '' },
+                amber: { container: 'border-amber-200', header: 'bg-amber-100', text: 'text-amber-800', row: 'bg-amber-50' }
+            };
+            const t = themeClasses[theme];
+
+            let html = `<h3 class="text-xl font-semibold text-gray-700 mb-3">${title}</h3>
+                <div class="overflow-x-auto border ${t.container} rounded-lg">
+                    <table class="min-w-full bg-white">
+                        <thead class="${t.header}">
+                            <tr>${headers.map(h => `<th class="py-3 px-4 border-b text-left text-sm font-medium ${t.text}">${h}</th>`).join('')}</tr>
+                        </thead>
+                        <tbody class="${t.row}">${rows.join('')}</tbody>
+                    </table>
+                </div>`;
+            return html;
+        }
+        
+        function showError(message) {
+            resultsContainer.classList.remove('hidden');
+            summaryBox.classList.add('hidden');
+            comparisonResultsEl.innerHTML = `<p class="text-red-600 font-bold">${message}</p>`;
+            lmsOnlyResultsEl.innerHTML = '';
+        }
+
+        function copyMessageToClipboard() {
+            const textToCopy = copyText.innerText;
+            // Using document.execCommand for broader compatibility within iframe environments
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                copyBtn.textContent = '복사 완료!';
+                setTimeout(() => { copyBtn.textContent = '클립보드로 복사'; }, 2000);
+            } catch (err) {
+                console.error('클립보드 복사 실패:', err);
+                copyBtn.textContent = '복사 실패';
+            }
+            document.body.removeChild(textArea);
+        }
+    </script>
+</body>
+</html>
